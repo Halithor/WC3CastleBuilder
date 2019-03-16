@@ -1,0 +1,16 @@
+package Init
+import Constants
+
+init
+    SetTimeOfDay(6)
+    for pid = 0 to bj_MAX_PLAYER_SLOTS - 1
+        let p = players[pid]
+        if p.isIngame()
+            p.setCameraPosition(vec2(0,0))
+            let u = createUnit(p, kUID_StartingBuilder, vec2(0,0), GetRandomDirectionDeg().asAngleDegrees())
+            p.selectSingle(u)
+            p.setGold(200)
+            p.setLumber(600)
+            
+            
+

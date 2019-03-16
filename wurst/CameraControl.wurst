@@ -1,0 +1,63 @@
+package CameraControl
+
+import ClosureEvents
+import ClosureTimers
+import Quest
+
+// Divided by 100 to account for the % part of the input
+constant CAM_DISTANCE_BASE = 1650.0  / 100.0
+
+constant CHAT_MESSAGE_TRIGGER = "-cam"
+constant CHAT_MESSAGE_LOCK1 = "l"
+constant CHAT_MESSAGE_LOCK2 = "lock"
+
+constant CAMERA_CHANGE_TIME = 0.8
+
+class PlayerCameraSetting
+    real distance = 150.0
+    bool locked = true
+
+
+PlayerCameraSetting array camSettings
+
+function updatePlayerCamera(player p, bool instant)
+    let curDist = GetCameraField(CAMERA_FIELD_TARGET_DISTANCE)
+    let goalDist = camSettings[p.getId()].distance * CAM_DISTANCE_BASE
+    if (curDist - goalDist).abs() > 10
+        p.setCameraField(CAMERA_FIELD_TARGET_DISTANCE, goalDist, instant ? 0.0 : CAMERA_CHANGE_TIME)
+
+init
+    for i = 0 to bj_MAX_PLAYERS - 1
+        camSettings[i] = new PlayerCameraSetting()
+        updatePlayerCamera(players[i], true)
+    
+    EventListener.add(EVENT_PLAYER_CHAT_FILTER) ->
+        let p = GetTriggerPlayer()
+        var message = GetEventPlayerChatString().trim()
+        if message.startsWith(CHAT_MESSAGE_TRIGGER)
+            message = message.substring(CHAT_MESSAGE_TRIGGER.length()).trim()
+            camSettings[p.getId()].locked = false
+            if message.endsWith(CHAT_MESSAGE_LOCK1) or message.endsWith(CHAT_MESSAGE_LOCK2)
+                camSettings[p.getId()].locked = true
+                message = message.replace(CHAT_MESSAGE_LOCK2, "").replace(CHAT_MESSAGE_LOCK1, "").trim()
+            camSettings[p.getId()].distance = message.toReal()
+            DisplayTimedTextToPlayer(p, 0, 0, 10, 
+                "Setting camera to {0}% distance.".format(camSettings[p.getId()].distance.toString(0)) 
+                + (camSettings[p.getId()].locked ? " Camera locked." : ""))
+            updatePlayerCamera(p, false)
+            
+    doPeriodically(0.03) cb ->
+        for i = 0 to bj_MAX_PLAYERS - 1
+            if camSettings[i].locked
+                updatePlayerCamera(players[i], true)
+    
+    CreateQuest()
+        ..discovered(true)
+        ..setRequired(false)
+        ..setTitle("Camera Controls")
+        ..setDescription("The ingame camera distance can be controlled via the cam command\n\n|cffffcc00Usage:|r\n" 
+            + "    |cffaaaaff-cam |cffaaffaa###|r |cffffffaalock|r|r\n\n"
+            + "Replace |cffaaffaa###|r with the |cffffcc00percentage multiplier|r of the default Warcraft camera you desire."
+            + "\nAdd '|cffffffaal|r' or '|cffffffaa|rlock' after the distance to lock the camera distance.\n\n|cff999999Distance at game start is 150%|r")
+        ..setIcon("ReplaceableTextures\\WorldEditUI\\Doodad-Cinematic.blp")
+    

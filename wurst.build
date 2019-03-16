@@ -1,0 +1,9 @@
+---
+projectName: "castlebuilder"
+dependencies:
+- "https://github.com/wurstscript/wurstStdlib2"
+buildMapData:
+  name: "Castle Builder 2019 v0.03"
+  fileName: "CastleBuilder2019_v0.03"
+  author: "Halithor"
+  playerCount: 24

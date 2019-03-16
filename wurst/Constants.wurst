@@ -1,0 +1,6 @@
+package Constants
+
+public constant MAX_PLAYERS = 24
+public constant MAX_PLAYER_SLOTS = 28
+
+public constant kUID_StartingBuilder = 'e000'

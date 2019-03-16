@@ -1,0 +1,162 @@
+package PlayerStatus
+
+import Constants
+import DialogBox
+import ClosureEvents
+import Colors
+import Assets
+
+constant CHAT_MESSAGE_ALLY = "-ally"
+constant CHAT_MESSAGE_WAR = "-war"
+constant CHAT_MESSAGE_TRUCE = "-truce"
+constant CHAT_MESSAGE_COLORS = "-colors"
+
+public enum AllianceStatus
+    ALLIANCE
+    TRUCE
+    WAR
+
+PlayerStatus array status
+
+public class PlayerStatus
+    player p
+    // The desired name for the player
+    string name
+
+    private AllianceStatus array[MAX_PLAYERS] relations
+    // Is this player trading with the other?
+    private bool array[MAX_PLAYERS] trading
+
+    construct(player p)
+        this.p = p
+        setName(p.getName())
+        for pid = 0 to MAX_PLAYERS - 1
+            relations[pid] = AllianceStatus.WAR
+    
+    function getAllianceStatus(player target) returns AllianceStatus
+        return relations[target.getId()]
+
+    function setAllianceStatus(player target, AllianceStatus status)
+        relations[target.getId()] = status
+
+    function setName(string name)
+        this.name = name
+        p.setName("[" + (p.getId() + 1).toString() + "] " + name)
+
+public function player.getStatus() returns PlayerStatus
+    return status[this.getId()]
+
+function changeAllianceStatus(player source, player target, AllianceStatus status)
+    if source.getStatus().getAllianceStatus(target) != status
+        source.getStatus().setAllianceStatus(target, status)
+        switch status
+            case ALLIANCE
+                source.setPlayerAlliance(target, ALLIANCE_PASSIVE, true)
+                source.setPlayerAlliance(target, ALLIANCE_HELP_REQUEST, true)
+                source.setPlayerAlliance(target, ALLIANCE_HELP_RESPONSE, true)
+                source.setPlayerAlliance(target, ALLIANCE_SHARED_XP, true)
+                source.setPlayerAlliance(target, ALLIANCE_SHARED_SPELLS, true)
+                source.setPlayerAlliance(target, ALLIANCE_SHARED_VISION_FORCED, true)
+            case TRUCE
+                source.setPlayerAlliance(target, ALLIANCE_PASSIVE, true)
+                source.setPlayerAlliance(target, ALLIANCE_HELP_REQUEST, true)
+                source.setPlayerAlliance(target, ALLIANCE_HELP_RESPONSE, true)
+                source.setPlayerAlliance(target, ALLIANCE_SHARED_XP, true)
+                source.setPlayerAlliance(target, ALLIANCE_SHARED_SPELLS, true)
+                source.setPlayerAlliance(target, ALLIANCE_SHARED_VISION_FORCED, false)
+            case WAR    
+                source.setPlayerAlliance(target, ALLIANCE_PASSIVE, false)
+                source.setPlayerAlliance(target, ALLIANCE_HELP_REQUEST, false)
+                source.setPlayerAlliance(target, ALLIANCE_HELP_RESPONSE, false)
+                source.setPlayerAlliance(target, ALLIANCE_SHARED_XP, false)
+                source.setPlayerAlliance(target, ALLIANCE_SHARED_SPELLS, false)
+                source.setPlayerAlliance(target, ALLIANCE_SHARED_VISION_FORCED, false)
+
+function proposeAllianceChange(player source, player target, AllianceStatus status)
+    if source.getStatus().getAllianceStatus(target) != status
+        switch status
+            case AllianceStatus.WAR    
+                // War has no confirmation - it happens
+                changeAllianceStatus(source, target, status)
+                changeAllianceStatus(target, source, status)
+                DisplayTimedTextToForce(bj_FORCE_ALL_PLAYERS, 10, source.getNameColored() 
+                + " and " + target.getNameColored() 
+                + " are now at |cffaa0000war|r!")
+            case AllianceStatus.TRUCE
+                let dbox = new DialogBox(source.getNameColored() + " proposes a |cffffcc00truce|r. Do you agree?")
+                dbox.addButton("|cffaa0000No|r") -> 
+                    destroy dbox
+                dbox.addButton("|cff00aa00Yes|r") ->
+                    changeAllianceStatus(source, target, status)
+                    changeAllianceStatus(target, source, status)
+                    DisplayTimedTextToForce(bj_FORCE_ALL_PLAYERS, 10, source.getNameColored() 
+                        + " and " + target.getNameColored() 
+                        + " have declared a |cffffcc00truce|r!")
+                    destroy dbox
+                dbox.display(target, true)
+                DisplayTimedTextToPlayer(source, 0, 0, 5, "you have proposed a |cffffcc00true|r to " + target.getNameColored())
+            case AllianceStatus.ALLIANCE
+                let dbox = new DialogBox(source.getNameColored() + " proposes an |cffffcc00alliance|r. Do you agree?")
+                dbox.addButton("|cffaa0000No|r") -> 
+                    destroy dbox
+                dbox.addButton("|cff00aa00Yes|r") ->
+                    changeAllianceStatus(source, target, status)
+                    changeAllianceStatus(target, source, status)
+                    DisplayTimedTextToForce(bj_FORCE_ALL_PLAYERS, 10, source.getNameColored() 
+                        + " and " + target.getNameColored() 
+                        + " have formed an |cffffcc00alliance|r!")
+                    destroy dbox
+                dbox.display(target, true)
+                DisplayTimedTextToPlayer(source, 0, 0, 5, "You have proposed an |cffffcc00alliance|r to " + target.getNameColored())
+
+/** Tries to find a player from the input string. Checsk for color names and player numbers; red = 1*/
+function getPlayerFromIdentifier(string identifier) returns player
+    for i = 0 to MAX_PLAYERS
+        if PLAYER_COLOR_NAMES[i] == identifier
+            return players[i]
+
+    // try to parse an int, as the name didn't work
+    let pid = identifier.toInt()
+    if pid > 0 and pid <= MAX_PLAYERS
+        return players[pid - 1]
+    return null
+
+init
+    for pid = 0 to MAX_PLAYERS - 1
+        status[pid] = new PlayerStatus(players[pid])
+
+    let s = "|cff00b309"
+
+    EventListener.add(EVENT_PLAYER_CHAT_FILTER) ->
+        let p = GetTriggerPlayer()
+        var message = GetEventPlayerChatString().trim()
+        if message.startsWith(CHAT_MESSAGE_ALLY)
+                or message.startsWith(CHAT_MESSAGE_TRUCE)
+                or message.startsWith(CHAT_MESSAGE_WAR)
+            // Alliance status - get target and do as appropriate
+            AllianceStatus status
+            if message.startsWith(CHAT_MESSAGE_ALLY)
+                status = AllianceStatus.ALLIANCE
+                message = message.ltrim(CHAT_MESSAGE_ALLY)
+            else if message.startsWith(CHAT_MESSAGE_TRUCE)
+                status = AllianceStatus.TRUCE
+                message = message.ltrim(CHAT_MESSAGE_TRUCE)
+            else
+                status = AllianceStatus.WAR
+                message = message.ltrim(CHAT_MESSAGE_WAR)
+            message = message.trim()
+            let target = getPlayerFromIdentifier(message)
+            if target == null or not target.isIngame()
+                DisplayTimedTextToPlayer(p, 0, 0, 6.0, "|cffffcc00Failed to find a player in game corresponding to '" + message + "'.")
+                PlaySound(Sounds.error)
+            else if target == p
+                DisplayTimedTextToPlayer(p, 0, 0, 6.0, "|cffffcc00You can't change your relationship with your own nation.")
+            else 
+                proposeAllianceChange(p, target, status)
+        else if message.startsWith(CHAT_MESSAGE_COLORS)
+            DisplayTimedTextToPlayer(p, 0, 0, 10, "Player Colors are as follows:")
+            for i = 0 to MAX_PLAYERS - 1
+                if players[i].isIngame()
+                    DisplayTimedTextToPlayer(p, 0, 0, 10.0, players[i].getNameColored() + " is |cffffcc00" + players[i].getColor().getName() + "|r.")
+
+    
