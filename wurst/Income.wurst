@@ -11,10 +11,16 @@ constant CITIZEN_GROWTH_TIME = 15.0
 constant INCOME_PER_CITIZEN_PER_MINUTE = 0.5
 constant INCOME_CYCLE_DURATION = 1.0
 constant INCOME_BASE_PER_MINUTE = 100.0
+constant INCOME_TECH_PER_MINUTE = 50.0
+
+constant HOUSE_LIMIT = 20
 
 constant kUID_TENT = 'h003'
 constant kUID_HUT = 'h004'
 constant kUID_HOUSE = 'h005'
+
+constant kUID_TOWN = 'h002'
+constant kUID_KINGDOM = 'h003'
 
 function isUnitHouse(unit u) returns bool
     return u.getTypeId() == kUID_TENT 
@@ -39,6 +45,8 @@ class PlayerIncome
     real goldOverflow = 0.0
     real citizens = 0
 
+    int techLevel = 1
+
     construct(player p)
         owner = p
         houses = CreateGroup()
@@ -49,7 +57,9 @@ class PlayerIncome
         return tentCount + hutCount + houseCount
 
     function giveIncome()
-        let income = (((INCOME_BASE_PER_MINUTE + (citizens * INCOME_PER_CITIZEN_PER_MINUTE)) / 60.0) * INCOME_CYCLE_DURATION) + goldOverflow
+        let income = ((((INCOME_BASE_PER_MINUTE + (techLevel - 1) * INCOME_TECH_PER_MINUTE)
+            + (citizens * INCOME_PER_CITIZEN_PER_MINUTE)) / 60.0) * INCOME_CYCLE_DURATION) 
+            + goldOverflow
         let goldGained = income.floor()
         goldOverflow = (income - goldGained)
         owner.addGold(goldGained)
@@ -66,17 +76,18 @@ class PlayerIncome
             citizens += house.getMana()
         
     function sendReport()
-        owner.print("|cffffcc00===== Kingdom Report ====|r", 5)
-        owner.print("|cff411fffCitizens|r: " + citizens.toInt().toString())
-        owner.print("|cff411fffIncome per minute|r: " + (INCOME_BASE_PER_MINUTE + (citizens * INCOME_PER_CITIZEN_PER_MINUTE)).toInt().toString())
+        owner.print("|cffffcc00===== Kingdom Report ====|r", 10)
+        owner.print("|cff411fffCitizens|r: " + citizens.toInt().toString(), 10)
+        owner.print("|cff411fffKingdom|r: " 
+            + (INCOME_BASE_PER_MINUTE + (techLevel - 1) * INCOME_TECH_PER_MINUTE).toString(0), 10)
+        owner.print("|cff411fffIncome per minute|r: " 
+            + ((INCOME_BASE_PER_MINUTE + (techLevel - 1) * INCOME_TECH_PER_MINUTE) + (citizens * INCOME_PER_CITIZEN_PER_MINUTE)).toInt().toString(), 10)
         
 
     function updateHouseLimits()
         let total = getTotalIncomeStructures()
-        owner.print("Counts: " + tentCount.toString() + " | " 
-            + hutCount.toString() + " | " + houseCount.toString())
         // Just limit the tents, as they need to be built to do anything else
-        SetPlayerTechMaxAllowed(owner, kUID_TENT, tentCount + (20 - total))
+        SetPlayerTechMaxAllowed(owner, kUID_TENT, tentCount + (HOUSE_LIMIT - total))
 
     function handleHouseConstructStart(unit u)
         if u.getTypeId() == kUID_TENT
@@ -101,7 +112,7 @@ class PlayerIncome
 
     // House could be upgrading or normal.
     function handleHouseDeath(unit u)
-        if upgradingHouses.contains(u)
+        if upgradingHouses.has(u)
             // Upgrading. Change the count changes, remove from group
             if u.getTypeId() == kUID_HUT
                 // remove from one tier lower, as the ID will be the type being upgraded to.
@@ -120,6 +131,7 @@ class PlayerIncome
         // remove from normal group and update limits
         houses.removeUnit(u)
         updateHouseLimits()
+        updateCitizens()
 
     function handleHouseUpgradeStart(unit u)
         upgradingHouses.add(u)
@@ -206,6 +218,8 @@ init
         if isUnitHouse(u)
             u.getOwner().getIncome()
                     .handleHouseUpgradeFinish(u)
+        else if u.getTypeId() == kUID_TOWN or u.getTypeId() == kUID_KINGDOM
+            u.getOwner().getIncome().techLevel += 1
     registerPlayerUnitEvent(EVENT_PLAYER_UNIT_UPGRADE_CANCEL) ->
         let u = GetTriggerUnit()
         if isUnitHouse(u)

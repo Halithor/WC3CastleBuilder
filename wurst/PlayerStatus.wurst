@@ -4,12 +4,14 @@ import Constants
 import DialogBox
 import ClosureEvents
 import Colors
+import Quest
 import Assets
 
 constant CHAT_MESSAGE_ALLY = "-ally"
 constant CHAT_MESSAGE_WAR = "-war"
 constant CHAT_MESSAGE_TRUCE = "-truce"
 constant CHAT_MESSAGE_COLORS = "-colors"
+constant CHAT_MESSAGE_NAME = "-name"
 
 public enum AllianceStatus
     ALLIANCE
@@ -125,7 +127,30 @@ init
     for pid = 0 to MAX_PLAYERS - 1
         status[pid] = new PlayerStatus(players[pid])
 
-    let s = "|cff00b309"
+    new Quest(false)
+        ..setState(QuestState.DISCOVERED)
+        ..setTitle("Alliances")
+        ..addObjective("|cffffcc00Commands:|r")
+        ..addObjective("    |cffaaaaff-ally|r |cffaaffaa<player>|r")
+        ..addObjective("    |cffaaaaff-truce|r |cffaaffaa<player>|r")
+        ..addObjective("    |cffaaaaff-war|r |cffaaffaa<player>|r")
+        ..setDescription(""
+            + "Replace |cffaaffaa<player>|r with a player's |cffaaffaaNumber|r or "
+            + "|cffaaffaaColor|r (Hint: Use '|cffffcc00-color|r' to see all color names).\n\n"
+            + "Alliance and truce formations are mutual; the other player must agree for the"
+            + "relationship to be formed. Declaring war has no such restriction.")
+        ..setIcon(Icons.bTNHumanCaptureFlag)
+    
+
+    
+    
+    new Quest(false)
+        ..setState(QuestState.DISCOVERED)
+        ..setTitle("Name Changing")
+        ..addObjective("|cffffcc00Command:|r")
+        ..addObjective("    |cffaaaaff-name|r |cffaaffaa<name>|r")
+        ..setDescription("Replace |cffaaffaa<name>|r with the new name for you kingdom.")
+        ..setIcon(Icons.bTNOrcCaptureFlag)
 
     EventListener.add(EVENT_PLAYER_CHAT_FILTER) ->
         let p = GetTriggerPlayer()
@@ -158,5 +183,10 @@ init
             for i = 0 to MAX_PLAYERS - 1
                 if players[i].isIngame()
                     DisplayTimedTextToPlayer(p, 0, 0, 10.0, players[i].getNameColored() + " is |cffffcc00" + players[i].getColor().getName() + "|r.")
+        else if message.startsWith(CHAT_MESSAGE_NAME)
+            let oldName = p.getColor().toColor().toColorString() + p.getStatus().name + "|r"
+            p.getStatus().setName(message.ltrim(CHAT_MESSAGE_NAME).trim().substring(0, 32))
+            let newName = p.getColor().toColor().toColorString() + p.getStatus().name + "|r"
+            print("From henceforth, " + oldName + " shall be known as " + newName, 15)
 
     

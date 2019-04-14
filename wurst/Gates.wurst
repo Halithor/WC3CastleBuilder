@@ -1,0 +1,156 @@
+/** Open and close gates without fuckery */
+package Gates
+
+import ClosureEvents
+import GroupUtils
+import ClosureForGroups
+import SoundUtils
+import ClosureTimers
+import Assets
+
+constant kAID_GATE_WOOD_OPEN = 'A00I'
+constant kAID_GATE_WOOD_CLOSE = 'A00J'
+constant kAID_GATE_REIN_OPEN = 'A00L'
+constant kAID_GATE_REIN_CLOSE = 'A00K'
+
+constant kUID_GATE_WOOD_HORZ_OPEN = 'h00N'
+constant kUID_GATE_WOOD_HORZ_CLOSED = 'h00L'
+constant kUID_GATE_WOOD_VERT_OPEN = 'h00O'
+constant kUID_GATE_WOOD_VERT_CLOSED = 'h00M'
+
+constant kUID_GATE_REIN_HORZ_OPEN = 'h00R'
+constant kUID_GATE_REIN_HORZ_CLOSED = 'h00Q'
+constant kUID_GATE_REIN_VERT_OPEN = 'h00T'
+constant kUID_GATE_REIN_VERT_CLOSED = 'h00S'
+
+constant NEARBY_RANGE = 256.0
+constant NEARBY_ALLIED_RANGE = 130.0
+
+constant GATE_LENGTH = 256.0
+constant GATE_HEIGHT = 64.0
+constant GATE_AREA_HORZ = Rect(0, 0, GATE_LENGTH, GATE_HEIGHT)
+constant RECT_HORIZ = Rect(0, 0, GATE_LENGTH + 128.0, GATE_HEIGHT + 128.0)
+constant RECT_VERT = Rect(0, 0, GATE_HEIGHT * 2, GATE_LENGTH + 16.0)
+
+constant errorSound = new SoundDefinition(Sounds.error, false)
+
+player filterPlayer
+function areEnemiesNearby(unit u) returns bool
+    filterPlayer = u.getOwner()
+    ENUM_GROUP
+        ..enumUnitsInRange(u.getPos(), NEARBY_RANGE, 
+            Filter(() -> GetFilterUnit().getOwner().isEnemyOf(filterPlayer) 
+                    and not GetFilterUnit().isType(UNIT_TYPE_STRUCTURE)))
+    let areEnemiesAround = not ENUM_GROUP.isEmpty()
+    ENUM_GROUP.clear()
+    return areEnemiesAround
+
+constant notStructureFilter = Filter(() -> not GetFilterUnit().isType(UNIT_TYPE_STRUCTURE))
+
+function circleIntersects(vec2 pos, real rad, rect r) returns bool
+    let cDistX = (pos.x - r.getCenterX()).abs()
+    let cDistY = (pos.y - r.getCenterY()).abs()
+
+    if cDistX > (r.width() / 2 + rad) or cDistY > (r.height() / 2 + rad)
+        return false
+    if cDistX <= r.width() / 2 or cDistY <= r.height() / 2
+        return true
+    let cornerDistSq = (cDistX - r.width() / 2) * (cDistX - r.width() / 2) 
+        + (cDistY - r.height() / 2) * (cDistY - r.height() / 2) 
+    return cornerDistSq <= rad * rad
+
+
+// Hack that hides then shows all units in the gate, to prevent the overlap issue
+function moveAlliedUnits(unit caster, bool horz)
+    group g = getGroup()
+    if horz
+        RECT_HORIZ.moveTo(caster.getPos())
+        GATE_AREA_HORZ.moveTo(caster.getPos() + vec2(0,4))
+        // let pos = caster.getPos()
+        // let gateRec = Rect(pos.x - GATE_LENGTH / 2, pos.y - GATE_HEIGHT / 2, 
+        //     pos.x + GATE_LENGTH / 2, pos.y + GATE_HEIGHT / 2)
+        // let testRec = Rect(pos.x - GATE_LENGTH, pos.y - (GATE_HEIGHT + 64.0), 
+        //     pos.x + GATE_LENGTH, pos.y + (GATE_HEIGHT + 64.0) )
+        flashEffect(Abilities.raiseSkeleton, RECT_HORIZ.getRightBot(), 0.3)
+        flashEffect(Abilities.raiseSkeleton, RECT_HORIZ.getRightTop(), 0.3)
+        flashEffect(Abilities.raiseSkeleton, RECT_HORIZ.getLeftBot(), 0.3)
+        flashEffect(Abilities.raiseSkeleton, RECT_HORIZ.getLeftTop(), 0.3)
+        ENUM_GROUP
+            ..enumUnitsInRect(RECT_HORIZ, notStructureFilter)
+            .forEachFrom(u -> begin
+                if circleIntersects(u.getPos(), u.getCollisionSize() + 4, GATE_AREA_HORZ)
+                    // The unit overlaps with the gate in some way, so move it out how far its in.
+                    let sign = u.getY() < caster.getY() ? -1 : 1
+                    // need to do the sign stuff since the projected
+                    u.setY(u.getY() + (sign * (u.getCollisionSize() + 4 + GATE_HEIGHT / 2)))
+            end)
+
+function onGateCast(unit caster) 
+    let casterType = caster.getTypeId()    
+    if casterType == kUID_GATE_WOOD_HORZ_OPEN or 
+            casterType == kUID_GATE_WOOD_HORZ_CLOSED or
+            casterType == kUID_GATE_WOOD_VERT_OPEN or
+            casterType == kUID_GATE_WOOD_VERT_CLOSED or
+            casterType == kUID_GATE_REIN_HORZ_OPEN or 
+            casterType == kUID_GATE_REIN_HORZ_CLOSED or
+            casterType == kUID_GATE_REIN_VERT_OPEN or
+            casterType == kUID_GATE_REIN_VERT_CLOSED
+        let owner = caster.getOwner()
+        if (GetSpellAbilityId() == kAID_GATE_WOOD_CLOSE 
+                or GetSpellAbilityId() == kAID_GATE_REIN_CLOSE) and areEnemiesNearby(caster)
+            CreateTextTag()
+                ..setText("Enemies too close!", 10)
+                ..setPos(caster.getPos3Zero())
+                ..setColor(205, 0, 0, 255)
+                ..setFadepoint(2.)
+                ..setLifespan(3.)
+                ..setVelocity(0., 0.03)
+                ..setPermanent(false)
+                ..setVisibility(true)
+            errorSound.playForPlayer(owner)
+            return 
+    
+        let isSelected = IsUnitSelected(caster, owner)
+        let casterPos = caster.getPos()
+        let casterHp = caster.getHP()
+        caster.remove()
+        unit newGate
+        if casterType == kUID_GATE_WOOD_HORZ_CLOSED
+            newGate = createUnit(owner, kUID_GATE_WOOD_HORZ_OPEN, casterPos, bj_UNIT_FACING.asAngleDegrees())
+            SetUnitAnimation(newGate, "Death Alternate")
+        else if casterType == kUID_GATE_WOOD_VERT_CLOSED
+            newGate = createUnit(owner, kUID_GATE_WOOD_VERT_OPEN, casterPos, bj_UNIT_FACING.asAngleDegrees())
+            SetUnitAnimation(newGate, "Death Alternate")
+        else if casterType == kUID_GATE_WOOD_HORZ_OPEN
+            newGate = createUnit(owner, kUID_GATE_WOOD_HORZ_CLOSED, casterPos, bj_UNIT_FACING.asAngleDegrees())
+        else if casterType == kUID_GATE_WOOD_VERT_OPEN
+            newGate = createUnit(owner, kUID_GATE_WOOD_VERT_CLOSED, casterPos, bj_UNIT_FACING.asAngleDegrees())
+        else if casterType == kUID_GATE_REIN_HORZ_CLOSED
+            newGate = createUnit(owner, kUID_GATE_REIN_HORZ_OPEN, casterPos, bj_UNIT_FACING.asAngleDegrees())
+            SetUnitAnimation(newGate, "Death Alternate")
+        else if casterType == kUID_GATE_REIN_VERT_CLOSED
+            newGate = createUnit(owner, kUID_GATE_REIN_VERT_OPEN, casterPos, bj_UNIT_FACING.asAngleDegrees())
+            SetUnitAnimation(newGate, "Death Alternate")
+        else if casterType == kUID_GATE_REIN_HORZ_OPEN
+            newGate = createUnit(owner, kUID_GATE_REIN_HORZ_CLOSED, casterPos, bj_UNIT_FACING.asAngleDegrees())
+        else //if casterType == kUID_GATE_REIN_VERT_OPEN
+            newGate = createUnit(owner, kUID_GATE_REIN_VERT_CLOSED, casterPos, bj_UNIT_FACING.asAngleDegrees())
+        newGate.setHP(casterHp)
+        newGate.hide()
+        newGate.setXY(casterPos)
+        newGate.show()
+        if isSelected
+            owner.select(newGate)
+
+init
+    EventListener.onCast(kAID_GATE_WOOD_OPEN) caster -> 
+        onGateCast(caster)
+    EventListener.onCast(kAID_GATE_WOOD_CLOSE) caster -> 
+        onGateCast(caster)
+    EventListener.onCast(kAID_GATE_REIN_OPEN) caster -> 
+        onGateCast(caster)
+    EventListener.onCast(kAID_GATE_REIN_CLOSE) caster -> 
+        onGateCast(caster)
+        
+            
+        

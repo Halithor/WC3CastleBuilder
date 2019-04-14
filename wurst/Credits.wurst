@@ -1,0 +1,18 @@
+package Credits
+
+import ClosureTimers
+import Quest
+import Icons
+
+init
+    doAfter(0.5) ->
+        new Quest(false)
+            ..setState(QuestState.DISCOVERED)
+            ..setTitle("Credits")
+            ..addObjective("|cff3B97D3Game by Halithor and Spider0804.|r")
+            ..addObjective("Testing by Diokratos.")
+            ..addObjective("|cffaaaaaaAll external resources by Blizzard|r")
+            ..addObjective("|cff411fffPowered by Wurst|r")
+            ..setDescription(" ")
+            ..setIcon(Icons.bTNNightElfCaptureFlag)
+            

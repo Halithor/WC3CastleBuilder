@@ -51,13 +51,17 @@ init
             if camSettings[i].locked
                 updatePlayerCamera(players[i], true)
     
-    CreateQuest()
-        ..discovered(true)
-        ..setRequired(false)
-        ..setTitle("Camera Controls")
-        ..setDescription("The ingame camera distance can be controlled via the cam command\n\n|cffffcc00Usage:|r\n" 
-            + "    |cffaaaaff-cam |cffaaffaa###|r |cffffffaalock|r|r\n\n"
-            + "Replace |cffaaffaa###|r with the |cffffcc00percentage multiplier|r of the default Warcraft camera you desire."
-            + "\nAdd '|cffffffaal|r' or '|cffffffaa|rlock' after the distance to lock the camera distance.\n\n|cff999999Distance at game start is 150%|r")
-        ..setIcon("ReplaceableTextures\\WorldEditUI\\Doodad-Cinematic.blp")
+    doAfter(0.05) ->
+        new Quest(false)
+            ..setState(QuestState.DISCOVERED)
+            ..setTitle("Camera Controls")
+            ..addObjective("|cffffcc00Command:|r")
+            ..addObjective("    |cffaaaaff-cam |cffaaffaa###|r |cffffffaalock|r|r")
+            ..addObjective("")
+            ..addObjective("|cffaaaaaaDefault is 150% locked|r")
+            ..setDescription("Replace |cffaaffaa###|r with the |cffaaffaapercentage multiplier|r "
+                + "of the default Warcraft camera you desire.\n"
+                + "Add '|cffffffaal|r' or '|cffffffaalock|r' after the distance to lock the camera "
+                + "distance.\n\n|cff999999Distance at game start is 150%|r")
+            ..setIcon("ReplaceableTextures\\WorldEditUI\\Doodad-Cinematic.blp")
     
