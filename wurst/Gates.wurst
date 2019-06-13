@@ -24,13 +24,6 @@ constant kUID_GATE_REIN_VERT_OPEN = 'h00T'
 constant kUID_GATE_REIN_VERT_CLOSED = 'h00S'
 
 constant NEARBY_RANGE = 256.0
-constant NEARBY_ALLIED_RANGE = 130.0
-
-constant GATE_LENGTH = 256.0
-constant GATE_HEIGHT = 64.0
-constant GATE_AREA_HORZ = Rect(0, 0, GATE_LENGTH, GATE_HEIGHT)
-constant RECT_HORIZ = Rect(0, 0, GATE_LENGTH + 128.0, GATE_HEIGHT + 128.0)
-constant RECT_VERT = Rect(0, 0, GATE_HEIGHT * 2, GATE_LENGTH + 16.0)
 
 constant errorSound = new SoundDefinition(Sounds.error, false)
 
@@ -111,6 +104,10 @@ init
         onGateCast(caster)
     EventListener.onCast(kAID_GATE_REIN_CLOSE) caster -> 
         onGateCast(caster)
-        
+    registerPlayerUnitEvent(EVENT_PLAYER_UNIT_CONSTRUCT_FINISH) ->
+        let unitType = GetConstructedStructure().getTypeId()
+        if unitType == kUID_GATE_WOOD_HORZ_CLOSED or unitType == kUID_GATE_WOOD_VERT_CLOSED
+            GetConstructedStructure().issueImmediateOrder("berserk")
+            
             
         

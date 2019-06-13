@@ -3,7 +3,6 @@ package PlayerStatus
 import Constants
 import DialogBox
 import ClosureEvents
-import Colors
 import Quest
 import Assets
 
@@ -47,6 +46,9 @@ public class PlayerStatus
 
 public function player.getStatus() returns PlayerStatus
     return status[this.getId()]
+
+public function player.getNameColoredNoNumber() returns string
+    return this.getColor().toColor().toColorString() + this.getStatus().name + "|r"
 
 function changeAllianceStatus(player source, player target, AllianceStatus status)
     if source.getStatus().getAllianceStatus(target) != status

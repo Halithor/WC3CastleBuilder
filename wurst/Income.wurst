@@ -4,6 +4,7 @@ import Constants
 import ClosureEvents
 import ClosureTimers
 import HashSet
+import PlayerStatus
 
 constant CITIZEN_GROWTH_AMOUNT = 0.75
 constant CITIZEN_GROWTH_TIME = 15.0
@@ -19,8 +20,8 @@ constant kUID_TENT = 'h003'
 constant kUID_HUT = 'h004'
 constant kUID_HOUSE = 'h005'
 
-constant kUID_TOWN = 'h002'
-constant kUID_KINGDOM = 'h003'
+constant kUID_TOWN = 'e002'
+constant kUID_KINGDOM = 'e003'
 
 function isUnitHouse(unit u) returns bool
     return u.getTypeId() == kUID_TENT 
@@ -81,7 +82,8 @@ class PlayerIncome
         owner.print("|cff411fffKingdom|r: " 
             + (INCOME_BASE_PER_MINUTE + (techLevel - 1) * INCOME_TECH_PER_MINUTE).toString(0), 10)
         owner.print("|cff411fffIncome per minute|r: " 
-            + ((INCOME_BASE_PER_MINUTE + (techLevel - 1) * INCOME_TECH_PER_MINUTE) + (citizens * INCOME_PER_CITIZEN_PER_MINUTE)).toInt().toString(), 10)
+            + ((INCOME_BASE_PER_MINUTE + (techLevel - 1) * INCOME_TECH_PER_MINUTE) 
+            + (citizens * INCOME_PER_CITIZEN_PER_MINUTE)).toInt().toString(), 10)
         
 
     function updateHouseLimits()
@@ -220,8 +222,13 @@ init
                     .handleHouseUpgradeFinish(u)
         else if u.getTypeId() == kUID_TOWN or u.getTypeId() == kUID_KINGDOM
             u.getOwner().getIncome().techLevel += 1
+            print(u.getOwner().getNameColoredNoNumber() 
+                + " has upgraded to a |cffffcc00" + u.getName() + "|r")
     registerPlayerUnitEvent(EVENT_PLAYER_UNIT_UPGRADE_CANCEL) ->
         let u = GetTriggerUnit()
         if isUnitHouse(u)
             u.getOwner().getIncome()
                     .handleHouseUpgradeCancel(u)
+    EventListener.add(EVENT_PLAYER_CHAT_FILTER) ->
+        if GetEventPlayerChatString().trim().startsWith("-report")
+            GetTriggerPlayer().getIncome().sendReport()

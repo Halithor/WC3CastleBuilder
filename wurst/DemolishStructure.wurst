@@ -1,0 +1,26 @@
+/** Small package for the demolish ability */
+package DemolishStructure
+
+import ClosureEvents
+import ClosureTimers
+
+constant kAID_DEMOLISH = 'A00M'
+constant kAID_DEMOLISH_DIVINE = 'A00N'
+
+constant TBD = CreateGroup()
+
+function onDemolish(unit u)
+    if TBD.contains(u)
+        u.explode()
+    else
+        TBD.addUnit(u)
+        doAfter(1.0) ->
+            TBD.removeUnit(u)
+
+init 
+    EventListener.onCast(kAID_DEMOLISH) u -> 
+        onDemolish(u)
+    EventListener.onCast(kAID_DEMOLISH_DIVINE) u -> 
+        onDemolish(u)
+        
+
